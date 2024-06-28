@@ -200,6 +200,7 @@ def get_embedding_function(
     openai_key,
     openai_url,
     batch_size,
+    user = "default_user_id"
 ):
     if embedding_engine == "":
         return lambda query: embedding_function.encode(query).tolist()
@@ -219,6 +220,7 @@ def get_embedding_function(
                 text=query,
                 key=openai_key,
                 url=openai_url,
+                user=user
             )
 
         def generate_multiple(query, f):
@@ -363,17 +365,18 @@ def generate_openai_embeddings(
     text: Union[str, list[str]],
     key: str,
     url: str = "https://api.openai.com/v1",
+    user: str = "default_user_id"
 ):
     if isinstance(text, list):
-        embeddings = generate_openai_batch_embeddings(model, text, key, url)
+        embeddings = generate_openai_batch_embeddings(model, text, key, url, user)
     else:
-        embeddings = generate_openai_batch_embeddings(model, [text], key, url)
+        embeddings = generate_openai_batch_embeddings(model, [text], key, url, user)
 
     return embeddings[0] if isinstance(text, str) else embeddings
 
 
 def generate_openai_batch_embeddings(
-    model: str, texts: list[str], key: str, url: str = "https://api.openai.com/v1"
+    model: str, texts: list[str], key: str, url: str = "https://api.openai.com/v1", user: str = "default_user_id"
 ) -> Optional[list[list[float]]]:
     try:
         r = requests.post(
@@ -382,7 +385,7 @@ def generate_openai_batch_embeddings(
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {key}",
             },
-            json={"input": texts, "model": model},
+            json={"input": texts, "model": model, "user": user},
         )
         r.raise_for_status()
         data = r.json()

@@ -307,7 +307,7 @@ class EmbeddingModelUpdateForm(BaseModel):
 
 @app.post("/embedding/update")
 async def update_embedding_config(
-    form_data: EmbeddingModelUpdateForm, user=Depends(get_admin_user)
+    form_data: EmbeddingModelUpdateForm, user=Depends(get_current_user)
 ):
     log.info(
         f"Updating embedding model: {app.state.config.RAG_EMBEDDING_MODEL} to {form_data.embedding_model}"
@@ -335,6 +335,7 @@ async def update_embedding_config(
             app.state.config.OPENAI_API_KEY,
             app.state.config.OPENAI_API_BASE_URL,
             app.state.config.RAG_EMBEDDING_OPENAI_BATCH_SIZE,
+            user
         )
 
         return {
@@ -671,7 +672,7 @@ def store_youtube_video(form_data: UrlForm, user=Depends(get_current_user)):
         if collection_name == "":
             collection_name = calculate_sha256_string(form_data.url)[:63]
 
-        store_data_in_vector_db(data, collection_name, overwrite=True)
+        store_data_in_vector_db(data, collection_name, user=user.email, overwrite=True)
         return {
             "status": True,
             "collection_name": collection_name,
@@ -699,7 +700,7 @@ def store_web(form_data: UrlForm, user=Depends(get_current_user)):
         if collection_name == "":
             collection_name = calculate_sha256_string(form_data.url)[:63]
 
-        store_data_in_vector_db(data, collection_name, overwrite=True)
+        store_data_in_vector_db(data, collection_name, user=user.email, overwrite=True)
         return {
             "status": True,
             "collection_name": collection_name,
@@ -890,7 +891,7 @@ def store_web_search(form_data: SearchForm, user=Depends(get_current_user)):
         if collection_name == "":
             collection_name = calculate_sha256_string(form_data.query)[:63]
 
-        store_data_in_vector_db(data, collection_name, overwrite=True)
+        store_data_in_vector_db(data, collection_name, user=user.email, overwrite=True)
         return {
             "status": True,
             "collection_name": collection_name,
@@ -904,7 +905,7 @@ def store_web_search(form_data: SearchForm, user=Depends(get_current_user)):
         )
 
 
-def store_data_in_vector_db(data, collection_name, overwrite: bool = False) -> bool:
+def store_data_in_vector_db(data, collection_name, user: str = "", overwrite: bool = False) -> bool:
 
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=app.state.config.CHUNK_SIZE,
@@ -916,13 +917,13 @@ def store_data_in_vector_db(data, collection_name, overwrite: bool = False) -> b
 
     if len(docs) > 0:
         log.info(f"store_data_in_vector_db {docs}")
-        return store_docs_in_vector_db(docs, collection_name, overwrite), None
+        return store_docs_in_vector_db(docs, collection_name, user, overwrite), None
     else:
         raise ValueError(ERROR_MESSAGES.EMPTY_CONTENT)
 
 
 def store_text_in_vector_db(
-    text, metadata, collection_name, overwrite: bool = False
+    text, metadata, collection_name, user: str = "", overwrite: bool = False
 ) -> bool:
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=app.state.config.CHUNK_SIZE,
@@ -930,10 +931,10 @@ def store_text_in_vector_db(
         add_start_index=True,
     )
     docs = text_splitter.create_documents([text], metadatas=[metadata])
-    return store_docs_in_vector_db(docs, collection_name, overwrite)
+    return store_docs_in_vector_db(docs, collection_name, user, overwrite)
 
 
-def store_docs_in_vector_db(docs, collection_name, overwrite: bool = False) -> bool:
+def store_docs_in_vector_db(docs, collection_name, user: str = "", overwrite: bool = False) -> bool:
     log.info(f"store_docs_in_vector_db {docs} {collection_name}")
 
     texts = [doc.page_content for doc in docs]
@@ -962,6 +963,7 @@ def store_docs_in_vector_db(docs, collection_name, overwrite: bool = False) -> b
             app.state.config.OPENAI_API_KEY,
             app.state.config.OPENAI_API_BASE_URL,
             app.state.config.RAG_EMBEDDING_OPENAI_BATCH_SIZE,
+            user
         )
 
         embedding_texts = list(map(lambda x: x.replace("\n", " "), texts))
@@ -1109,7 +1111,7 @@ def store_doc(
         data = loader.load()
 
         try:
-            result = store_data_in_vector_db(data, collection_name)
+            result = store_data_in_vector_db(data, collection_name, user=user.email)
 
             if result:
                 return {
@@ -1164,7 +1166,7 @@ def process_doc(
         data = loader.load()
 
         try:
-            result = store_data_in_vector_db(data, collection_name)
+            result = store_data_in_vector_db(data, collection_name, user=user.email)
 
             if result:
                 return {
@@ -1241,7 +1243,7 @@ def scan_docs_dir(user=Depends(get_admin_user)):
                 data = loader.load()
 
                 try:
-                    result = store_data_in_vector_db(data, collection_name)
+                    result = store_data_in_vector_db(data, collection_name, user=user.email)
 
                     if result:
                         sanitized_filename = sanitize_filename(filename)

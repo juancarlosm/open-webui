@@ -438,6 +438,10 @@ async def generate_chat_completion(
             "email": user.email,
             "role": user.role,
         }
+        
+    # Add user for LiteLLM tracking
+    if not payload.get("user"):
+        payload['user'] = user.email
 
     # Check if the model is "gpt-4-vision-preview" and set "max_tokens" to 4000
     # This is a workaround until OpenAI fixes the issue with this model
@@ -524,6 +528,17 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
     r = None
     session = None
     streaming = False
+    
+
+    # Add user for LiteLLM tracking
+    try:
+        body = json.loads(body)
+        if not body.get("user"):
+            body['user'] = user.email
+            body = json.dumps(body)
+            log.debug(f"Set user for tracking: {user.email}")
+    except json.JSONDecodeError as e:
+        log.error("Error loading request body into a dictionary:", e)
 
     try:
         session = aiohttp.ClientSession(trust_env=True)
