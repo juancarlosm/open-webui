@@ -83,7 +83,11 @@ from utils.misc import (
     sanitize_filename,
     extract_folders_after_data_docs,
 )
-from utils.utils import get_verified_user, get_admin_user
+from utils.utils import (
+    get_verified_user,
+    get_admin_user,
+    get_current_user
+)
 
 from config import (
     AppConfig,
